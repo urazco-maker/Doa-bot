@@ -1,0 +1,1 @@
+print("Doa Bot Başlatıldı")

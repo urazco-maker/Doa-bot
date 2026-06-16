@@ -1,12 +1,11 @@
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
+import os
 
-TOKEN = 8890631109:AAE0qz3y40hoCG5k6XKNjbTt8-BFotNGfjc
+TOKEN = os.getenv("BOT_TOKEN")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🚀 Doa Nasdaq Bot Aktif!"
-    )
+    await update.message.reply_text("🚀 Bot çalışıyor!")
 
 app = Application.builder().token(TOKEN).build()
 

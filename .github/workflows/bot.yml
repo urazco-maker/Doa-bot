@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  run:
+  bot:
     runs-on: ubuntu-latest
 
     steps:
@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install
+      - name: Install library
         run: pip install python-telegram-bot
 
       - name: Run bot

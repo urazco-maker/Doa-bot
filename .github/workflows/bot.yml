@@ -1,0 +1,22 @@
+name: Doa Bot
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python Kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Paketleri Kur
+        run: pip install -r requirements.txt
+
+      - name: Botu Çalıştır
+        run: python bot.py

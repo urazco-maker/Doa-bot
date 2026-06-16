@@ -19,5 +19,7 @@ jobs:
       - name: Bağımlılık kur
         run: pip install -r requirements.txt
 
-      - name: Bot çalıştır
-        run: python bot.py
+- name: Bot çalıştır
+  run: python bot.py
+  env:
+    TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

@@ -16,10 +16,10 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Bağımlılık kur
-        run: pip install -r requirements.txt
+      - name: bağımlılık kur
+        run: pip install requests
 
-- name: Bot çalıştır
-  run: python bot.py
-  env:
-    TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      - name: bot çalıştır
+        run: python bot.py
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

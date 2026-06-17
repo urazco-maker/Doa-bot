@@ -1,175 +1,117 @@
-import os
 import requests
-import yfinance as yf
-import numpy as np
+import pandas as pd
+from datetime import datetime
 
-TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+# -----------------------------
+# TELEGRAM CONFIG
+# -----------------------------
+BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
 CHAT_ID = "8662141509"
 
-# 🚀 500+ SMALL / MID CAP UNIVERSE (realistic mix)
-WATCHLIST = [
-    # index anchors
-    "SPY","QQQ","IWM",
+def send_telegram(message):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": CHAT_ID,
+        "text": message,
+        "parse_mode": "HTML"
+    }
+    requests.post(url, data=payload)
 
-    # mega caps
-    "AAPL","MSFT","NVDA","AMZN","META","TSLA","AMD","GOOGL","NFLX",
+# -----------------------------
+# WATCHLIST
+# -----------------------------
+WATCHLIST = ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "AMD", "GOOGL"]
+MIN_SCORE = 45
 
-    # mid caps
-    "PLTR","SOFI","RIVN","HOOD","COIN","SNAP","SQ","PYPL","DKNG","ROKU",
-    "AFRM","UPST","DDOG","CRWD","SNOW","SHOP","UBER","LYFT","PINS","WMT",
-    "DIS","INTC","ORCL","BABA","BIDU","BILI","NET","OKTA","TEAM",
+# -----------------------------
+# PRICE DATA
+# -----------------------------
+def get_price_data(symbol):
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=5d"
+    r = requests.get(url).json()
 
-    # small cap AI / hype
-    "AI","BBAI","C3AI","IONQ","SOUN","RKLB","SMCI","PLUG","ENVX","TEM",
-    "GCT","VERI","AISP","CXAI","GRRR","AIRE","ASTS","HIMS","QS",
-
-    # EV / growth small caps
-    "NIO","XPEV","LI","NKLA","FSR","RIDE","CHPT","BLNK","GOEV","LEV",
-
-    # biotech
-    "MRNA","BNTX","NVAX","SRPT","REGN","VRTX","IONS","BLUE","EDIT","OCGN",
-
-    # crypto stocks
-    "MARA","RIOT","HUT","BITF","BTBT","CAN","COIN",
-
-    # meme / high volatility
-    "GME","AMC","BB","KOSS","FUBO","SPCE","TLRY","BYND","CLOV","ATER","MMAT",
-
-    # extended small cap list (simulation of 500+ universe)
-    "TIGR","UPST","SOFI","OPEN","LCID","RBLX","HOOD","AFRM","AFMD","DNA",
-    "EVGO","BE","RUN","SEDG","ENPH","ARRY","FSLR","PLUG","BLNK","CHPT"
-] * 8   # 👈 makes it 500+ artificially (important trick for Actions limits)
-
-
-# 📤 TELEGRAM
-def send(msg):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     try:
-        requests.post(url, data={"chat_id": CHAT_ID, "text": msg}, timeout=10)
+        closes = r["chart"]["result"][0]["indicators"]["quote"][0]["close"]
+        volumes = r["chart"]["result"][0]["indicators"]["quote"][0]["volume"]
+        return closes, volumes
     except:
-        pass
+        return None, None
 
+# -----------------------------
+# INDICATORS
+# -----------------------------
+def rsi(prices):
+    s = pd.Series(prices).dropna()
+    delta = s.diff()
 
-# 📊 RSI
-def rsi(series):
-    delta = series.diff()
-    gain = delta.clip(lower=0).rolling(14).mean()
-    loss = -delta.clip(upper=0).rolling(14).mean()
+    gain = (delta.where(delta > 0, 0)).rolling(3).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(3).mean()
+
     rs = gain / loss
-    return float((100 - (100 / (1 + rs))).iloc[-1])
+    return 100 - (100 / (1 + rs)).iloc[-1]
 
 
-# 🌍 REGIME
-def regime():
-    try:
-        df = yf.download("SPY", period="6mo", interval="1d", progress=False)
-        close = df["Close"]
-
-        ema50 = close.ewm(span=50).mean()
-        ema200 = close.ewm(span=200).mean()
-
-        return "BULL" if float(ema50.iloc[-1]) > float(ema200.iloc[-1]) else "BEAR"
-    except:
-        return "NEUTRAL"
-
-
-# ⚡ QUICK FILTER (500+ için kritik)
-def quick_filter(df):
-    try:
-        if df is None or len(df) < 20:
-            return False
-
-        move = abs((df["Close"].iloc[-1] - df["Close"].iloc[-5]) / df["Close"].iloc[-5]) * 100
-        vol = df["Volume"].mean()
-
-        if move < 2:
-            return False
-
-        if vol < 150000:
-            return False
-
-        return True
-    except:
-        return False
-
-
-# ⚡ ANALYSIS
-def analyze(symbol, market):
-    try:
-        df = yf.download(symbol, period="6mo", interval="1d", progress=False)
-
-        if not quick_filter(df):
-            return None
-
-        close = df["Close"]
-
-        ema20 = close.ewm(span=20).mean()
-        ema50 = close.ewm(span=50).mean()
-
-        price = float(close.iloc[-1])
-        r = rsi(close)
-
-        momentum = ((close.iloc[-1] - close.iloc[-10]) / close.iloc[-10]) * 100
-
-        score = 0
-
-        # trend
-        if float(ema20.iloc[-1]) > float(ema50.iloc[-1]):
-            score += 3
-        else:
-            score -= 3
-
-        # RSI
-        if r < 30:
-            score += 3
-        elif r > 70:
-            score -= 3
-        else:
-            score += 1
-
-        # momentum
-        if momentum > 6:
-            score += 3
-        elif momentum < -5:
-            score -= 3
-
-        # market filter
-        if market == "BEAR":
-            score -= 2
-
-        return symbol, score, r, momentum, price
-
-    except:
+def score_symbol(symbol):
+    prices, volumes = get_price_data(symbol)
+    if prices is None:
         return None
 
+    score = 0
 
-# 🌍 MAIN
-market = regime()
+    r = rsi(prices)
 
-results = []
+    # RSI score
+    if r < 30:
+        score += 25
+    elif r < 45:
+        score += 15
+    elif r < 60:
+        score += 5
 
-for s in WATCHLIST:
-    r = analyze(s, market)
-    if r:
-        results.append(r)
+    # momentum
+    if prices[-1] > prices[-3]:
+        score += 15
 
+    # volume
+    if volumes[-1] > sum(volumes)/len(volumes):
+        score += 10
 
-# 🏆 SORT TOP 5
-results = sorted(results, key=lambda x: x[1], reverse=True)[:5]
+    return {
+        "symbol": symbol,
+        "score": round(score, 2),
+        "rsi": round(r, 2)
+    }
 
+# -----------------------------
+# RUN
+# -----------------------------
+def run():
+    results = []
 
-# 📤 OUTPUT
-if not results:
-    send(f"📊 NO EDGE FOUND | Market: {market}")
-else:
-    msg = f"🏦 500+ UNIVERSE QUANT SCAN\nMarket: {market}\n\n"
+    for s in WATCHLIST:
+        data = score_symbol(s)
+        if data:
+            results.append(data)
 
-    for sym, score, r, mom, price in results:
-        if score >= 8:
-            msg += f"🔥 BUY {sym}\nScore:{score}\nRSI:{r:.1f}\nMom:{mom:.2f}%\nPrice:{price:.2f}\n\n"
-        elif score >= 6:
-            msg += f"👀 WATCH {sym} Score:{score}\n"
+    results = sorted(results, key=lambda x: x["score"], reverse=True)
 
-    send(msg)
+    top = [x for x in results if x["score"] >= MIN_SCORE][:5]
 
-print("BIG UNIVERSE DONE")
+    time = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    if not top:
+        top = results[:3]
+        msg = "⚠️ LOW QUALITY SET (forced signals)\n\n"
+    else:
+        msg = "🚀 AGGRESSIVE SIGNALS\n\n"
+
+    msg += f"Time: {time}\n\n"
+
+    for t in top:
+        msg += f"{t['symbol']} | SCORE: {t['score']} | RSI: {t['rsi']}\n"
+
+    print(msg)
+    send_telegram(msg)
+
+if __name__ == "__main__":
+    run()

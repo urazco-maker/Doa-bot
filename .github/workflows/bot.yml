@@ -1,9 +1,9 @@
-name: PRO+ AI Scanner
+name: Live Hedge System
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/20 * * * *"
+    - cron: "*/5 * * * *"
 
 jobs:
   bot:
@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - run: pip install yfinance requests
+      - run: pip install yfinance numpy requests
 
       - run: python bot.py
         env:

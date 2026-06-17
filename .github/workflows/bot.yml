@@ -1,9 +1,9 @@
-name: Small Cap Pro Scanner
+name: PRO+ AI Scanner
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "*/20 * * * *"
 
 jobs:
   bot:

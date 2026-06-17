@@ -1,4 +1,4 @@
-name: Live Hedge System
+name: Stable Quant Bot
 
 on:
   workflow_dispatch:

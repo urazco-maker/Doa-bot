@@ -3,7 +3,7 @@ import requests
 import yfinance as yf
 
 TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-CHAT_ID = "CHAT_ID"
+CHAT_ID = "8662141509"
 
 WATCHLIST = ["AAPL", "TSLA", "NVDA", "AMD", "META", "AMZN", "MSFT", "GOOGL"]
 

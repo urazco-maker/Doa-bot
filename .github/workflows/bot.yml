@@ -1,7 +1,9 @@
-name: Doa Bot
+name: Small Cap Pro Scanner
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
 
 jobs:
   bot:

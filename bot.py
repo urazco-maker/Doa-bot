@@ -1,26 +1,23 @@
 import os
 import requests
-import yfinance as yf
 
 print("BOT STARTED")
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = "8662141509"
 
-def send(msg):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
+if not TOKEN:
+    print("TOKEN MISSING")
+    exit()
 
-# Veri çek
-data = yf.download("AAPL", period="5d", interval="1h")
+url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
 
-# Güvenli float hesaplama
-last = float(data["Close"].iloc[-1])
-prev = float(data["Close"].iloc[-2])
+msg = "🚀 Bot çalışıyor test mesajı"
 
-change = ((last - prev) / prev) * 100
+res = requests.post(url, data={
+    "chat_id": CHAT_ID,
+    "text": msg
+})
 
-# Mesaj gönder
-send(f"🚀 Test Bot Çalışıyor | AAPL: {change:.2f}%")
-
+print("STATUS:", res.status_code)
 print("BOT FINISHED")

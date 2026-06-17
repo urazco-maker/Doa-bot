@@ -1,25 +1,22 @@
-name: Doa Bot
+import os
+import requests
+import yfinance as yf
 
-on:
-  workflow_dispatch:
+print("BOT STARTED")
 
-jobs:
-  bot:
-    runs-on: ubuntu-latest
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+CHAT_ID = "CHAT_ID"
 
-    steps:
-      - name: Repo çek
-        uses: actions/checkout@v4
+WATCHLIST = ["AAPL", "TSLA", "NVDA", "AMD", "META"]
 
-      - name: Python kur
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+def send(msg):
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
 
-      - name: Bağımlılıkları yükle
-        run: pip install -r requirements.txt
+data = yf.download("AAPL", period="5d", interval="1h")
 
-      - name: Botu çalıştır
-        run: python bot.py
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+change = (data["Close"].iloc[-1] - data["Close"].iloc[-2]) / data["Close"].iloc[-2] * 100
+
+send(f"🚀 Test Bot Çalışıyor | AAPL: {change:.2f}%")
+
+print("BOT FINISHED")

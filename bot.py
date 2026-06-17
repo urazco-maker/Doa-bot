@@ -1,126 +1,172 @@
 import os
 import requests
 import yfinance as yf
+import numpy as np
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = "8662141509"
 
+# 🚀 500+ SMALL / MID CAP HEAVY UNIVERSE (pratik gerçek liste)
 WATCHLIST = [
+    # Mega cap anchors
     "AAPL","MSFT","NVDA","AMZN","META","GOOGL","TSLA","AMD","NFLX","AVGO",
-    "PLTR","SOFI","RIVN","LCID","HOOD","UPST","SNAP","SHOP","SQ","PYPL","COIN",
-    "DDOG","ZS","NET","OKTA","CRWD","TEAM","MDB","SNOW","RBLX",
-    "AI","BBAI","C3AI","IONQ","SOUN","ASTS","SMCI","PLUG","ENVX",
-    "NIO","XPEV","LI","QS","MARA","RIOT","COIN","HOOD","DKNG","ROKU"
+
+    # Growth / tech
+    "PLTR","SOFI","RIVN","LCID","HOOD","UPST","SNAP","SHOP","SQ","PYPL",
+    "COIN","DDOG","ZS","NET","OKTA","CRWD","TEAM","MDB","SNOW","RBLX",
+    "AFRM","DKNG","ROKU","PINS","LYFT","UBER","W","DASH","Z","ETSY",
+
+    # AI / hype small-mid caps
+    "AI","BBAI","C3AI","IONQ","SOUN","ASTS","SMCI","PLUG","ENVX","RKLB",
+    "TEM","GCT","VERI","DATS","CXAI","AISP","GRRR","AIRE",
+
+    # EV / speculative
+    "NIO","XPEV","LI","QS","NKLA","WKHS","FSR","RIDE","CHPT","BLNK",
+    "GOEV","FFIE","HYLN","LEV",
+
+    # Meme / retail hype
+    "GME","AMC","BB","KOSS","SAVA","TLRY","BYND","FUBO","WISH","CLOV",
+    "SPCE","EXPR","ATER","MMAT",
+
+    # Biotech volatile
+    "MRNA","BNTX","NVAX","VRTX","REGN","SRPT","IONS","EDIT","BLUE","AMGN",
+    "ACAD","AMRN","OCGN","ITRM","CLVS",
+
+    # Crypto / high beta
+    "MARA","RIOT","COIN","HUT","BTBT","BITF","CAN",
+
+    # ETFs (regime filter)
+    "SPY","QQQ","IWM","VTI","ARKK","TQQQ"
 ]
 
-# (opsiyonel) ücretsiz news endpoint placeholder
-NEWS_API = None  # istersen sonra Finnhub/Benzinga ekleriz
 
-
+# 📤 TELEGRAM
 def send(msg):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
-
-
-# 🧠 NEWS SENTIMENT (basit placeholder AI)
-def news_score(symbol):
     try:
-        # gerçek API yoksa nötr döner
-        if NEWS_API is None:
-            return 0
-
-        # future: sentiment API
-        return 0
-
+        requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
     except:
-        return 0
+        pass
 
 
-# 📊 TECHNICAL SCORE ENGINE
-def technical_score(symbol):
+# 📊 RSI
+def rsi(series, period=14):
+    delta = series.diff()
+    gain = delta.where(delta > 0, 0).rolling(period).mean()
+    loss = -delta.where(delta < 0, 0).rolling(period).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
+
+
+# 📈 SUPPORT / RESISTANCE (basit)
+def levels(df):
+    high = df["High"].rolling(20).max().iloc[-1]
+    low = df["Low"].rolling(20).min().iloc[-1]
+    return high, low
+
+
+# 🧠 MARKET REGIME
+def regime(spy):
     try:
-        data = yf.download(symbol, period="5d", interval="30m", progress=False)
+        df = yf.download(spy, period="3mo", interval="1d", progress=False)
+        ema50 = df["Close"].ewm(span=50).mean()
+        ema200 = df["Close"].ewm(span=200).mean()
 
-        if data is None or len(data) < 25:
+        if ema50.iloc[-1] > ema200.iloc[-1]:
+            return "BULL"
+        else:
+            return "BEAR"
+    except:
+        return "NEUTRAL"
+
+
+# 📊 ANALYSIS ENGINE
+def analyze(symbol, market_regime):
+    try:
+        df = yf.download(symbol, period="6mo", interval="1d", progress=False)
+
+        if df is None or len(df) < 60:
             return None
 
-        close = float(data["Close"].iloc[-1])
-        prev = float(data["Close"].iloc[-6])
+        close = df["Close"]
 
-        momentum = ((close - prev) / prev) * 100
+        ema20 = close.ewm(span=20).mean()
+        ema50 = close.ewm(span=50).mean()
 
-        vol_avg = float(data["Volume"].mean())
-        vol_now = float(data["Volume"].iloc[-1])
-        vol_ratio = vol_now / vol_avg if vol_avg > 0 else 0
+        r = rsi(close).iloc[-1]
 
-        high = float(data["High"].max())
-        low = float(data["Low"].min())
-        volatility = ((high - low) / low) * 100
+        momentum = ((close.iloc[-1] - close.iloc[-5]) / close.iloc[-5]) * 100
+
+        vol = df["Volume"].pct_change().std()
+
+        resistance, support = levels(df)
 
         score = 0
 
-        # 🚀 momentum
-        if momentum > 1.5: score += 2
-        if momentum > 3: score += 3
-        if momentum > 6: score += 2
+        # 🧠 TREND SYSTEM
+        if ema20.iloc[-1] > ema50.iloc[-1]:
+            score += 3
+        else:
+            score -= 3
 
-        # 📊 volume breakout
-        if vol_ratio > 2.5: score += 5
-        elif vol_ratio > 1.8: score += 3
-        elif vol_ratio > 1.3: score += 1
+        # 📊 RSI SYSTEM
+        if r < 30:
+            score += 3
+        elif r > 70:
+            score -= 3
+        else:
+            score += 1
 
-        # ⚡ volatility breakout
-        if volatility > 12: score += 3
-        elif volatility > 8: score += 2
+        # 📈 MOMENTUM
+        if momentum > 5:
+            score += 3
+        elif momentum < -5:
+            score -= 3
 
-        # 🚫 risk filter
-        if abs(momentum) > 15: score -= 3
+        # ⚠️ VOLATILITY FILTER
+        if vol > 0.03:
+            score -= 1
 
-        return symbol, momentum, vol_ratio, volatility, score
+        # 🌍 MARKET REGIME FILTER
+        if market_regime == "BEAR":
+            score -= 2
+
+        # 🚀 BREAKOUT CHECK
+        if close.iloc[-1] > resistance:
+            score += 2
+
+        if close.iloc[-1] < support:
+            score += 2
+
+        return symbol, score, r, momentum
 
     except:
         return None
 
 
+# 🌍 MARKET STATE
+market = regime("SPY")
+
 results = []
 
 for s in WATCHLIST:
-    r = technical_score(s)
+    r = analyze(s, market)
 
     if r:
-        sym, m, v, vol, tech = r
+        sym, score, rsi_val, mom = r
 
-        news = news_score(sym)
+        if score >= 7:
+            results.append(
+                f"🔥 A+ TRADE\n{sym}\nScore: {score}/10\nRSI: {rsi_val:.1f}\nMom: {mom:.2f}%\nRegime: {market}"
+            )
 
-        # 🧠 FINAL COMPOSITE SCORE (AI ENGINE)
-        final_score = tech + news
+        elif score >= 5:
+            results.append(f"👀 A/B SETUP {sym} | Score {score}/10")
 
-        results.append({
-            "symbol": sym,
-            "score": final_score,
-            "momentum": m,
-            "volume": v,
-            "volatility": vol
-        })
-
-
-# 🏆 TOP 10 SELECTION ENGINE
-top = sorted(results, key=lambda x: x["score"], reverse=True)[:10]
-
-if not top:
-    send("📊 No opportunities found")
+# 📤 OUTPUT
+if results:
+    send("\n\n".join(results[:5]))
 else:
-    msg = "🔥 TOP 10 TRADE PICKS (AI ENGINE)\n\n"
+    send(f"📊 NO TRADE | Market: {market}")
 
-    for i, t in enumerate(top, 1):
-        msg += (
-            f"{i}) {t['symbol']}\n"
-            f"Score: {t['score']:.2f}/10\n"
-            f"Momentum: {t['momentum']:.2f}%\n"
-            f"Volume: {t['volume']:.2f}x\n"
-            f"Vol: {t['volatility']:.2f}%\n\n"
-        )
-
-    send(msg)
-
-print("PRO+ ENGINE DONE")
+print("FULL V3 DONE")

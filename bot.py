@@ -5,41 +5,16 @@ import yfinance as yf
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = "8662141509"
 
-# 🚀 SMALL-CAP HEAVY UNIVERSE (~500 yaklaşımı)
 WATCHLIST = [
-    # Mega cap (market anchor)
     "AAPL","MSFT","NVDA","AMZN","META","GOOGL","TSLA","AMD","NFLX","AVGO",
-
-    # Growth / mid cap core
     "PLTR","SOFI","RIVN","LCID","HOOD","UPST","SNAP","SHOP","SQ","PYPL","COIN",
-    "DDOG","ZS","NET","OKTA","CRWD","TEAM","MDB","SNOW","RBLX","U","TWLO",
-    "AFRM","DKNG","ROKU","PINS","LYFT","UBER","W","DASH","Z","ETSY","FVRR",
-
-    # AI / High volatility small-mid cap
-    "AI","BBAI","C3AI","IONQ","SYM","SOUN","ASTS","NVTS","PLUG","ENVX","RKLB",
-    "SMCI","MSTR","TEM","GCT","HIMS","OPFI","SOFI","UPST",
-
-    # EV / energy / speculative small cap
-    "NIO","XPEV","LI","QS","NKLA","WKHS","FSR","RIDE","CHPT","BLNK","GOEV",
-    "FFIE","CANO","LEV","GOCO","HYLN",
-
-    # Meme / retail / hype microcaps
-    "GME","AMC","BB","KOSS","SAVA","TLRY","BYND","FUBO","WISH","CLOV","SPCE",
-    "MMAT","ATER","ATER","EXPR","REV","BBBYQ",
-
-    # Biotech (small cap heavy)
-    "MRNA","BNTX","NVAX","VRTX","REGN","SRPT","IONS","EDIT","BLUE","IMRX",
-    "SRNE","ACAD","AMRN","CTXR","OCGN","ITRM","CLVS","GRTX",
-
-    # Crypto / high beta small caps
-    "MARA","RIOT","COIN","HUT","BTBT","BITF","CAN","ARBK",
-
-    # Micro cap tech / AI hype
-    "SOUN","AI","BBAI","SYM","VERI","DATS","CXAI","AISP","GRRR","AIRE",
-
-    # ETFs (market direction filter)
-    "SPY","QQQ","IWM","VTI","ARKK","TQQQ"
+    "DDOG","ZS","NET","OKTA","CRWD","TEAM","MDB","SNOW","RBLX",
+    "AI","BBAI","C3AI","IONQ","SOUN","ASTS","SMCI","PLUG","ENVX",
+    "NIO","XPEV","LI","QS","MARA","RIOT","COIN","HOOD","DKNG","ROKU"
 ]
+
+# (opsiyonel) ücretsiz news endpoint placeholder
+NEWS_API = None  # istersen sonra Finnhub/Benzinga ekleriz
 
 
 def send(msg):
@@ -47,7 +22,22 @@ def send(msg):
     requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
 
 
-def analyze(symbol):
+# 🧠 NEWS SENTIMENT (basit placeholder AI)
+def news_score(symbol):
+    try:
+        # gerçek API yoksa nötr döner
+        if NEWS_API is None:
+            return 0
+
+        # future: sentiment API
+        return 0
+
+    except:
+        return 0
+
+
+# 📊 TECHNICAL SCORE ENGINE
+def technical_score(symbol):
     try:
         data = yf.download(symbol, period="5d", interval="30m", progress=False)
 
@@ -69,23 +59,21 @@ def analyze(symbol):
 
         score = 0
 
-        # 🚀 MOMENTUM ENGINE (aggressive)
+        # 🚀 momentum
         if momentum > 1.5: score += 2
         if momentum > 3: score += 3
         if momentum > 6: score += 2
-        if momentum < -3: score -= 3
 
-        # 📊 VOLUME BREAKOUT (small cap odak)
-        if vol_ratio > 3: score += 5
-        elif vol_ratio > 2: score += 4
-        elif vol_ratio > 1.5: score += 2
-        elif vol_ratio < 0.5: score -= 2
+        # 📊 volume breakout
+        if vol_ratio > 2.5: score += 5
+        elif vol_ratio > 1.8: score += 3
+        elif vol_ratio > 1.3: score += 1
 
-        # ⚡ VOLATILITY (small cap doğası)
-        if volatility > 15: score += 3
-        elif volatility > 10: score += 2
+        # ⚡ volatility breakout
+        if volatility > 12: score += 3
+        elif volatility > 8: score += 2
 
-        # 🚫 RISK FILTER
+        # 🚫 risk filter
         if abs(momentum) > 15: score -= 3
 
         return symbol, momentum, vol_ratio, volatility, score
@@ -94,25 +82,45 @@ def analyze(symbol):
         return None
 
 
-signals = []
+results = []
 
 for s in WATCHLIST:
-    r = analyze(s)
+    r = technical_score(s)
 
     if r:
-        sym, m, v, vol, sc = r
+        sym, m, v, vol, tech = r
 
-        if sc >= 9:
-            signals.append(
-                f"🔥 STRONG SMALL-CAP BUY\n{sym}\nScore: {sc}/10\nMom: {m:.2f}%\nVol: {v:.2f}x\nVolatility: {vol:.2f}%"
-            )
+        news = news_score(sym)
 
-        elif sc >= 6:
-            signals.append(f"👀 SMALL-CAP SETUP {sym} | Score {sc}/10")
+        # 🧠 FINAL COMPOSITE SCORE (AI ENGINE)
+        final_score = tech + news
 
-if signals:
-    send("\n\n".join(signals))
+        results.append({
+            "symbol": sym,
+            "score": final_score,
+            "momentum": m,
+            "volume": v,
+            "volatility": vol
+        })
+
+
+# 🏆 TOP 10 SELECTION ENGINE
+top = sorted(results, key=lambda x: x["score"], reverse=True)[:10]
+
+if not top:
+    send("📊 No opportunities found")
 else:
-    send("📊 No strong small-cap breakouts found")
+    msg = "🔥 TOP 10 TRADE PICKS (AI ENGINE)\n\n"
 
-print("500+ SMALL CAP SCANNER DONE")
+    for i, t in enumerate(top, 1):
+        msg += (
+            f"{i}) {t['symbol']}\n"
+            f"Score: {t['score']:.2f}/10\n"
+            f"Momentum: {t['momentum']:.2f}%\n"
+            f"Volume: {t['volume']:.2f}x\n"
+            f"Vol: {t['volatility']:.2f}%\n\n"
+        )
+
+    send(msg)
+
+print("PRO+ ENGINE DONE")
